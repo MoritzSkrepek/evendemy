@@ -188,6 +188,32 @@ export class MeetingsService {
     return this.bookingRepository.save(await this.bookingRepository.find({ where: { mid: id }, relations: {user: true}}));
   }
 
+  async addComment(id: number, data: CommentEntity): Promise<MeetingEntity>{
+    const meeting = await this.meetingRepository.findOne({where: {mid: id}});
+    console.log(meeting);
+    if(!meeting){
+      throw new HttpException('Meeting not found', HttpStatus.NOT_FOUND);
+    }
+    const comment = new CommentEntity;
+    comment.text = data.text;
+    comment.creationDate = data.creationDate;
+    comment.author = data.author;
+    if(!meeting.comments){
+      meeting.comments = [];
+    }
+    meeting.comments.push(comment);
+    return this.meetingRepository.save(meeting);
+  }
+
+  async getAttendeesByMeetingID(id: number): Promise<MeetingUserEntity[]>{
+    const meeting = await this.meetingRepository.findOne({where: {mid: id}});
+    if (!meeting){
+      throw new HttpException('Meeting not found', HttpStatus.NOT_FOUND);
+    }
+    const attendees = await this.meetingUserRepository.find({where: {mid: id}});
+    return attendees;
+  }
+
   getAllTags(): Promise<string[]> {
     return this.dataSource.createQueryBuilder()
     .select("distinct UNNEST(meeting.tags)", 't')
