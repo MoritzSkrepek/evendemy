@@ -201,11 +201,11 @@ export class MeetingsService {
       meeting.comments = [];
     }
     meeting.comments.push(comment);
-
-    return this.meetingRepository.save(meeting)/*.then(m => this.notificationAboutMeetingsService.newComment(m))*/;
+    const attendees = await this.meetingUserRepository.find({where: {mid: id}});
+    return this.meetingRepository.save(meeting).then(m => this.notificationAboutMeetingsService.newComment(meeting, comment, attendees));
   }
 
-  async getAttendeesByMeetingID(id: number): Promise<MeetingUserEntity[]>{
+  async getAttendeesByMeetingID(id: number): Promise<AttendingEntity[]>{
     const meeting = await this.meetingRepository.findOne({where: {mid: id}});
     if (!meeting){
       throw new HttpException('Meeting not found', HttpStatus.NOT_FOUND);

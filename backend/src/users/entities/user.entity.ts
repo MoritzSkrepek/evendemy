@@ -7,6 +7,9 @@ import { UserDto } from "../dto/user.dto";
 export class UserEntity {
     @PrimaryColumn()
     username: string;
+
+    @ManyToOne(() => AttendingEntity, (user) => user.username)
+    unames: AttendingEntity;
   
     @Column()
     firstname: string;

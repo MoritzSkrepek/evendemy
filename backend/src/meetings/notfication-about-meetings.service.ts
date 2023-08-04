@@ -154,6 +154,15 @@ export class NotificationAboutMeetingsService {
     return mustache.render(html, parts);
   }
 
+  private renderMailComment(parts: MailParts, comment: CommentEntity, author: string){
+    var html = readFileSync('./assets/mail.html', 'utf8');
+    return mustache.render(html, {
+      ...parts,
+      comment: comment.text,
+      author: author
+    });
+  }
+
   private renderString(template: any, meeting?: MeetingEntity, user?: UserEntity, text?: string): string {
     return mustache.render(template, { meeting, user, text });
   }
