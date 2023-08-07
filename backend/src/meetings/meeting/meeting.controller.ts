@@ -36,6 +36,13 @@ export class MeetingController {
     return this.meetingsService.findOne(+mid).then(MeetingEntity.toDTO);
   }
 
+  private checkIfPresent(meeting: MeetingEntity): MeetingEntity {
+    if(!meeting) {
+      throw new HttpException("No meeting found.", HttpStatus.NOT_FOUND)
+    }
+    return meeting;
+  }
+
   @Get(':mid/calendar')
   async getCalendarForMeeting(@Req() request: EvendemyRequest, @Param('mid') mid: string) {
     return this.meetingsService.findOne(+mid).then(m => this.calendarService.createICAL(m));

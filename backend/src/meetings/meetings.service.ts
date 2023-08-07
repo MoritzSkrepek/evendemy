@@ -171,7 +171,7 @@ export class MeetingsService {
     const user = await this.usersService.findOne(username);
     const comment = new CommentEntity();
     comment.text = text;
-    comment.user = user;
+    comment._user = user;
     if(!meeting.comments){
       meeting.comments = [];
     }
@@ -186,32 +186,6 @@ export class MeetingsService {
       throw new HttpException('Meeting not found', HttpStatus.NOT_FOUND);
     }
     return this.bookingRepository.save(await this.bookingRepository.find({ where: { mid: id }, relations: {user: true}}));
-  }
-
-  async addComment(id: number, data: CommentDto): Promise<MeetingEntity>{
-    const meeting = await this.meetingRepository.findOne({where: {mid: id}, relations: {comments: true}});
-    if(!meeting){
-      throw new HttpException('Meeting not found', HttpStatus.NOT_FOUND);
-    }
-    const comment = new CommentEntity();
-    comment.text = data.text;
-    comment.creationDate = data.creationDate;
-    comment.author = data.author;
-    if(!meeting.comments){
-      meeting.comments = [];
-    }
-    meeting.comments.push(comment);
-    const attendees = await this.meetingUserRepository.find({where: {mid: id}});
-    return this.meetingRepository.save(meeting).then(m => this.notificationAboutMeetingsService.newComment(meeting, comment, attendees));
-  }
-
-  async getAttendeesByMeetingID(id: number): Promise<AttendingEntity[]>{
-    const meeting = await this.meetingRepository.findOne({where: {mid: id}});
-    if (!meeting){
-      throw new HttpException('Meeting not found', HttpStatus.NOT_FOUND);
-    }
-    const attendees = await this.meetingUserRepository.find({where: {mid: id}});
-    return attendees;
   }
 
   getAllTags(): Promise<string[]> {

@@ -91,11 +91,11 @@ export class NotificationAboutMeetingsService {
       this.logger.warn("Mail is not enabled!");
       return Promise.resolve(meeting);
     }
-    const attendeeEmails = bookings.filter(att => att.user.username !== comment.user.username).map(att => att.user.email);
+    const attendeeEmails = bookings.filter(att => att.user.username !== comment._user.username).map(att => att.user.email);
     const parts = this.renderParts(
       mailConfig.commentAddedToMeeting,
       meeting,
-      comment.user,
+      comment._user,
       comment.text
     );
     const html = this.renderMail(parts);
@@ -152,15 +152,6 @@ export class NotificationAboutMeetingsService {
   private renderMail(parts: MailParts) {
     var html = readFileSync('./assets/mail.html', 'utf8');//'../../assets/mail.html', 'utf8');
     return mustache.render(html, parts);
-  }
-
-  private renderMailComment(parts: MailParts, comment: CommentEntity, author: string){
-    var html = readFileSync('./assets/mail.html', 'utf8');
-    return mustache.render(html, {
-      ...parts,
-      comment: comment.text,
-      author: author
-    });
   }
 
   private renderString(template: any, meeting?: MeetingEntity, user?: UserEntity, text?: string): string {
