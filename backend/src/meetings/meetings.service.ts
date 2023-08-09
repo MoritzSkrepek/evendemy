@@ -171,6 +171,7 @@ export class MeetingsService {
     const user = await this.usersService.findOne(username);
     const comment = new CommentEntity();
     comment.text = text;
+    comment.username = username;
     comment._user = user;
     if(!meeting.comments){
       meeting.comments = [];
