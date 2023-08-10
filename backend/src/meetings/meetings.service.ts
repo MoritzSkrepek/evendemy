@@ -148,6 +148,9 @@ export class MeetingsService {
     if(newMeeting.tags != undefined){
       updatedFields.tags = newMeeting.tags;
     }
+    if(newMeeting.images != undefined){
+      updatedFields.images = newMeeting.images;
+    }
     Object.assign(oldMeeting, updatedFields);
     return oldMeeting;
   }
