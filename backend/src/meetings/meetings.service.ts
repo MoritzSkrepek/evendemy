@@ -1,13 +1,16 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, ForbiddenException } from '@nestjs/common';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { MeetingEntity } from './entities/meeting.entity';
-import { FindOptionsWhere, Repository, MoreThanOrEqual, LessThan, IsNull, Admin, FindOperator, ArrayContains, And, DataSource } from 'typeorm';
+import { FindOptionsWhere, Repository, MoreThanOrEqual, LessThan, IsNull, Admin, FindOperator, ArrayContains, And, DataSource, In } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { NotificationAboutMeetingsService } from './notfication-about-meetings.service';
 import { BookingEntity } from './entities/booking.entity';
 import { CommentEntity } from './entities/comment.entity';
 import { UsersService } from 'src/users/users/users.service';
 import { CalendarService } from './calendar.service';
+import { UserEntity } from 'src/users/entities/user.entity';
+import { SettingsService } from 'src/users/settings/settings.service';
+import { Console } from 'console';
 
 class MeetingsFilter {
   showNotAnnounced: boolean;
@@ -30,6 +33,7 @@ export class MeetingsService {
     private notificationAboutMeetingsService: NotificationAboutMeetingsService,
     private calenderService: CalendarService,
     private usersService: UsersService,
+    private settingsService: SettingsService,
     private dataSource: DataSource)
   { }
 
@@ -190,6 +194,122 @@ export class MeetingsService {
       throw new HttpException('Meeting not found', HttpStatus.NOT_FOUND);
     }
     return this.bookingRepository.save(await this.bookingRepository.find({ where: { mid: id }, relations: {user: true}}));
+  }
+
+  async confirmUserForMeeting(id: number, username: string): Promise<BookingEntity>{
+    username = username.toLowerCase();
+    const booking = await this.bookingRepository.findOne({
+      where: {mid: id, user: {username: username}, deleted: false},
+      relations: {user: true}
+    });
+    if (!booking) {
+      throw new HttpException('Booking not found', HttpStatus.NOT_FOUND);
+    }
+    booking.tookPart = true;
+    booking.dateOfConfirmation = new Date();
+    return this.bookingRepository.save(booking);
+  }
+
+  async rejectUserFromMeeting(id: number, username: string): Promise<BookingEntity>{
+    username = username.toLowerCase();
+    const booking = await this.bookingRepository.findOne({
+      where: {mid: id, user: {username: username}, deleted: false},
+      relations: {user: true}
+    });
+    if(!booking){
+      throw new HttpException('Booking not found', HttpStatus.NOT_FOUND);
+    }
+    booking.tookPart = false;
+    return this.bookingRepository.save(booking);
+  }
+
+  async attendingToMeeting(mid: number, username: string){
+    username = username.toLowerCase();
+    const booking = await this.bookingRepository.findOne({
+      where: {mid: mid, user: {username: username}},
+      relations: {user: true}
+    });
+    if (!booking){
+      const newBooking = new BookingEntity();
+      newBooking.mid = mid;
+      const user = await this.usersService.findOne(username);
+      newBooking.user = user;
+      newBooking.tookPart = false;
+      newBooking.dateOfRegistration = new Date();
+      newBooking.externals = [''];
+      newBooking.deleted = false;
+      const savedBooking = await this.bookingRepository.save(newBooking);
+      const meeting = await this.meetingRepository.findOne({where: {mid: mid}});
+      if (meeting && savedBooking.user) {
+        this.notificationAboutMeetingsService.notifyAuthor(true, meeting, savedBooking.user);
+      }
+      return savedBooking;
+    }
+    return booking;
+  }
+
+  async notAttendingToMeeting(mid: number, username: string): Promise<BookingEntity>{
+    username = username.toLowerCase();
+    const booking = await this.bookingRepository.findOne({
+      where: {mid: mid, user: {username: username}, deleted: false},
+      relations: {user: true}
+    });
+    if (!booking){
+      throw new HttpException('Booking not found', HttpStatus.NOT_FOUND);
+    }
+    booking.deleted = true;
+    const meeting = await this.meetingRepository.findOne({where: {mid: mid}});
+    const savedBooking = await this.bookingRepository.save(booking);
+    if(meeting && booking.user){
+      if (meeting.username == booking.user.username){
+        //Author is rejecting the participant
+        if(meeting.isIdea){
+          this.notificationAboutMeetingsService.notifyUser(booking.user, meeting);
+        }else{
+          this.notificationAboutMeetingsService.notifyUser(booking.user, meeting);
+        }
+      }else {
+        //User doesn't want to attend anymore
+        this.notificationAboutMeetingsService.notifyAuthor(false, meeting, booking.user);
+      }
+    }
+    return savedBooking;
+  }
+
+  async getMeetingsForUserWhichTookPart(username: string): Promise<MeetingEntity[]>{
+    username = username.toLowerCase();
+    const bookings = await this.bookingRepository.find({
+      where: {user: {username: username}, tookPart: true, deleted: false}
+    });
+    const meetingsIDs = bookings.map(booking => booking.mid);
+    if(meetingsIDs.length == 0){
+      return [];
+    }
+    return this.meetingRepository.find({
+      where: {mid: In(meetingsIDs)}
+    });
+  }
+
+  //these two functions (above and below) kind of do the same thing as in the old version weird?
+
+  async getAttendingInformationForUser(username: string): Promise<BookingEntity[]>{
+    username = username.toLowerCase();
+    return this.bookingRepository.find({
+      where: {user: {username: username}, tookPart: true, deleted: false}
+    });
+  }
+
+  async getMeetingsFromAuthor(username: string, userID: string): Promise<MeetingEntity[]>{
+    username = username.toLowerCase();
+    const settings = await this.settingsService.findOne(username);
+    if(username == userID || (settings && settings.summaryOfMeetingsVisible === true)){
+      return this.meetingRepository.find({
+        where: {username: username},
+        relations: {comments: true}
+      });
+    } else {
+      throw new ForbiddenException('Access Denied. Not allowed');
+    }
   }
 
   getAllTags(): Promise<string[]> {

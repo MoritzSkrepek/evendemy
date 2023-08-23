@@ -12,6 +12,7 @@ export class BookingEntity{
     mid: number;
 
     @ManyToOne(() => MeetingEntity, (meeting) => meeting.bookings)
+    @JoinColumn({name: "mid"})
     meeting: MeetingEntity;
 
     @Column({default: false})

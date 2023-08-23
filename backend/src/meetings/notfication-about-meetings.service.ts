@@ -115,7 +115,7 @@ export class NotificationAboutMeetingsService {
       meeting,
       creator,
       null
-    )
+    );
     var html = this.renderMail(parts);
     return this.sendMail(attendeeEmails, parts.title, html, ical).then(_ => meeting);
   }
@@ -133,9 +133,48 @@ export class NotificationAboutMeetingsService {
       meeting,
       creator, 
       null
-    )
+    );
     var html = this.renderMail(parts);
     return this.sendMail(attendeeEmails, parts.title, html).then(_ => meeting);
+  }
+
+  async notifyUser(user: UserEntity, meeting: MeetingEntity): Promise<MeetingEntity>{
+    if (!this.configService.get(ConfigTokens.MAIL_ENABLED)) {
+        this.logger.warn("Mail is not enabled!");
+        return Promise.resolve(meeting);
+    }
+    const parts = this.renderParts(
+      meeting.isIdea ? mailConfig.notificationMail.ideaParticipationRejected : mailConfig.notificationMail.meetingParticipationRejected, 
+      meeting, 
+      user, 
+      null
+    );
+    const html = this.renderMail(parts);
+    return this.sendMail([user.email], parts.title, html).then(_ => meeting);
+  }
+
+  async notifyAuthor(isNewAttendee: boolean, meeting: MeetingEntity, attendee: UserEntity): Promise<void>{
+    if (!this.configService.get(ConfigTokens.MAIL_ENABLED)) {
+      this.logger.warn("Mail is not enabled!");
+      return;
+    }
+    let template;
+    if (isNewAttendee){
+      template = meeting.isIdea ? mailConfig.notificationMail.newAttendeeForIdea : mailConfig.notificationMail.newAttendeeForMeeting;
+    } else {
+      template = meeting.isIdea ? mailConfig.notificationMail.canceledAttendeeForIdea : mailConfig.notificationMail.canceledAttendeeForMeeting;
+    }
+    const parts = this.renderParts(
+      template,
+      meeting,
+      attendee,
+      null
+    );
+    const html = this.renderMail(parts);
+    const author = await this.usersService.findOne(attendee.username);
+    if (author){
+      return this.sendMail([author.email], parts.title, html).then(() => {});
+    }
   }
 
   private renderParts(template: any, meeting?: MeetingEntity, user?: UserEntity, text?: string): MailParts {
